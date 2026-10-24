@@ -1,6 +1,7 @@
 """Logique métier des discussions : autorisations, historique, appel de l'agent."""
 
 import logging
+import time
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -112,6 +113,7 @@ async def send_message(
     history = load_history(chat)
 
     deps = ChatDeps(system_prompt=chat.system_prompt, news_client=news_client)
+    start = time.perf_counter()
     with handle_llm_errors("Essayez de reformuler votre message."):
         result = await chat_agent.run(
             content,
@@ -126,6 +128,22 @@ async def send_message(
     # utilisateur orphelin (sans réponse) dans l'historique.
     # Une nouvelle liste est assignée pour que SQLAlchemy détecte la modification du JSON.
     chat.messages = ModelMessagesTypeAdapter.dump_python(result.all_messages(), mode="json")
+    # Mesures de performance : durée, modèle ayant répondu (Gemini ou Groq en
+    # secours), nombre de recherches, appels au LLM et tokens consommés
+    usage = result.usage
+    logger.info(
+        "Chat %d : réponse en %.1f s | modèle %s | %d recherche(s) | %d appel(s) LLM | "
+        "%d tokens en entrée, %d en sortie | historique de %d messages",
+        chat.id,
+        time.perf_counter() - start,
+        result.response.model_name,
+        len(deps.searches),
+        usage.requests,
+        usage.input_tokens,
+        usage.output_tokens,
+        len(history),
+    )
+
     chat.loaded_articles = merge_loaded_articles(chat.loaded_articles, deps.loaded_articles)
     chat.updated_at = utc_now()
     session.add(chat)

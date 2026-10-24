@@ -127,9 +127,24 @@ async def generate_review(
             detail="La discussion est vide : échangez d'abord avec l'assistant.",
         )
 
+    start = time.perf_counter()
     prompt = await build_review_input(chat, topic, embed_model)
     with handle_llm_errors("Réessayez dans quelques instants."):
         result = await review_agent.run(prompt, model=llm)
+
+    usage = result.usage
+    logger.info(
+        "Revue (chat %d) : générée en %.1f s | modèle %s | discussion de %d messages | "
+        "prompt de %d caractères | %d tokens en entrée, %d en sortie | %d articles cités",
+        chat.id,
+        time.perf_counter() - start,
+        result.response.model_name,
+        len(chat.messages),
+        len(prompt),
+        usage.input_tokens,
+        usage.output_tokens,
+        len(result.output.articles),
+    )
 
     review = result.output
     chat.review_topic = topic
