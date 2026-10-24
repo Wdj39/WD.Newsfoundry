@@ -2,10 +2,12 @@ FROM ghcr.io/astral-sh/uv:python3.13-bookworm
 
 WORKDIR /app
 
-COPY backend/pyproject.toml backend/uv.lock ./
+# Le contexte de build est le dossier backend/ ("Root Directory" de Railway),
+# les chemins sont donc relatifs à ce dossier.
+COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen
 
-COPY backend/src/ ./src/
+COPY src/ ./src/
 
 EXPOSE 8000
 

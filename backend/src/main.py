@@ -1,3 +1,5 @@
+import os
+
 from database import init_db
 from fastapi import FastAPI
 import uvicorn
@@ -13,4 +15,7 @@ async def hello():
 if __name__ == "__main__":
     init_db()
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Railway fournit le port à utiliser via la variable d'environnement PORT.
+    # En local, on garde 8000 par défaut.
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run(app, host="0.0.0.0", port=port)
