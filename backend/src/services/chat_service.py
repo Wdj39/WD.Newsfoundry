@@ -12,12 +12,6 @@ from pydantic_ai import (
     UsageLimits,
     UserPromptPart,
 )
-from pydantic_ai.exceptions import (
-    FallbackExceptionGroup,
-    ModelAPIError,
-    UnexpectedModelBehavior,
-    UsageLimitExceeded,
-)
 from pydantic_ai.models import Model
 from sqlmodel import Session
 
@@ -25,6 +19,7 @@ from agents.chat_agent import ChatDeps, chat_agent
 from agents.prompts import build_chat_system_prompt
 from models import Chat, User, utc_now
 from schemas import MessageView
+from services.llm_errors import handle_llm_errors
 from services.news_api import NewsAPIError, NewsClient, get_top_news_cached
 
 logger = logging.getLogger(__name__)
@@ -100,7 +95,7 @@ async def send_message(
     """Envoie un message à l'agent, sauvegarde l'historique et retourne la réponse."""
     history = load_history(chat)
 
-    try:
+    with handle_llm_errors("Essayez de reformuler votre message."):
         result = await chat_agent.run(
             content,
             message_history=history,
@@ -108,20 +103,6 @@ async def send_message(
             model=llm,
             # Garde-fou : nombre maximal d'allers-retours avec le LLM (appels d'outils compris)
             usage_limits=UsageLimits(request_limit=8),
-        )
-    except (ModelAPIError, FallbackExceptionGroup):
-        # Erreur côté fournisseur (quota, panne, surcharge) sur tous les modèles
-        logger.exception("Échec de l'appel au LLM")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Le service d'IA est momentanément indisponible. Réessayez dans quelques instants.",
-        )
-    except (UnexpectedModelBehavior, UsageLimitExceeded):
-        # Le modèle a répondu, mais sa réponse est inexploitable
-        logger.exception("Réponse du LLM inexploitable")
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="L'IA n'a pas pu produire de réponse. Essayez de reformuler votre message.",
         )
 
     # On ne sauvegarde qu'en cas de succès : un échec ne laisse pas de message

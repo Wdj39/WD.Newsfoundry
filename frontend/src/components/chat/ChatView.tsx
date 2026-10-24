@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, LoaderCircle } from "lucide-react";
+import { ArrowLeft, FileText, LoaderCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -11,6 +11,7 @@ import ChatInput from "@/components/chat/ChatInput";
 import MessageBubble from "@/components/chat/MessageBubble";
 import TypingIndicator from "@/components/chat/TypingIndicator";
 import WelcomePanel from "@/components/chat/WelcomePanel";
+import ReviewModal from "@/components/reviews/ReviewModal";
 import { ApiError } from "@/lib/api";
 import { createChat, getChat, Message, sendMessage } from "@/lib/chats";
 
@@ -37,6 +38,7 @@ export default function ChatView({ chatId }: { chatId: number | null }) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
   // Discussion créée lors d'un envoi qui a ensuite échoué : on la réutilise au
   // prochain essai pour ne pas créer de discussions vides en double.
@@ -135,6 +137,16 @@ export default function ChatView({ chatId }: { chatId: number | null }) {
               <span className="block text-sm text-gray-700">Conversation active</span>
             </span>
           </Link>
+          <button
+            type="button"
+            onClick={() => setIsReviewModalOpen(true)}
+            disabled={messages.length === 0 || isSending}
+            title={messages.length === 0 ? "Échangez d'abord avec l'assistant" : undefined}
+            className="ml-auto inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-white transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:bg-gray-400"
+          >
+            <FileText size={18} aria-hidden="true" />
+            Générer une revue de presse
+          </button>
         </header>
       )}
 
@@ -175,6 +187,10 @@ export default function ChatView({ chatId }: { chatId: number | null }) {
         disabled={isSending || isLoadingHistory || loadError !== null}
         inputRef={inputRef}
       />
+
+      {isReviewModalOpen && chatId !== null && (
+        <ReviewModal chatId={chatId} onClose={() => setIsReviewModalOpen(false)} />
+      )}
     </div>
   );
 }

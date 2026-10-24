@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import CORS_ORIGINS
 from database import init_db
-from routers import auth, chats
+from routers import auth, chats, reviews
 
 logging.basicConfig(level=logging.INFO)
 
@@ -25,6 +25,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(chats.router)
+app.include_router(reviews.router)
 
 
 @app.get("/")

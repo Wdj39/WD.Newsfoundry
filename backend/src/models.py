@@ -6,7 +6,15 @@ from sqlmodel import Field, SQLModel
 
 
 def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    """Heure actuelle en UTC, sans fuseau horaire.
+
+    Les colonnes de date sont de type « timestamp without time zone » : si on y
+    enregistre une date avec fuseau, PostgreSQL la convertit d'abord dans le fuseau
+    de sa session (qui dépend de la configuration du serveur). En stockant une
+    heure UTC « naïve », la valeur enregistrée ne dépend plus de ce réglage.
+    Le fuseau UTC est rajouté à la lecture (voir schemas.UTCDatetime).
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class User(SQLModel, table=True):
@@ -33,3 +41,14 @@ class Chat(SQLModel, table=True):
     messages: list[dict[str, Any]] = Field(
         default_factory=list, sa_column=Column(JSON, nullable=False)
     )
+
+    # --- Revue de presse générée à partir de la discussion (vide tant qu'aucune
+    # revue n'a été générée ; une nouvelle génération remplace la précédente) ---
+    review_topic: Optional[str] = Field(default=None)
+    review_title: Optional[str] = Field(default=None)
+    review_summary: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
+    # Liste d'articles : [{"title", "source", "url", "summary"}, ...]
+    review_articles: Optional[list[dict[str, Any]]] = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+    review_generated_at: Optional[datetime] = Field(default=None)

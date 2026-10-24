@@ -96,3 +96,33 @@ def build_chat_system_prompt(
         news_section = NO_NEWS_SECTION
 
     return CHAT_SYSTEM_PROMPT_TEMPLATE.format(today=today_str, news_section=news_section)
+
+
+# --- Agent de revue de presse ------------------------------------------------
+
+REVIEW_INSTRUCTIONS = """\
+Tu es rédacteur en chef pour NewsFoundry. À partir d'une discussion entre un \
+journaliste et l'assistant, tu rédiges une revue de presse sur le thème demandé.
+
+## Règles
+- Utilise uniquement les informations et les articles présents dans la discussion \
+fournie : n'invente aucun fait, chiffre, citation, article ni URL.
+- Ne retiens que les articles en rapport avec le thème demandé. Recopie les URL \
+à l'identique.
+- Si la discussion contient peu d'éléments sur le thème, produis une revue courte \
+et signale-le dans la synthèse plutôt que de compléter avec des suppositions.
+- Reste factuel et neutre ; présente les différents points de vue s'il y en a.
+- Rédige en français, dans un style journalistique clair.
+"""
+
+
+def build_review_prompt(topic: str, conversation: str) -> str:
+    """Message envoyé à l'agent de revue de presse.
+
+    La discussion est placée entre balises pour que le modèle distingue
+    clairement la consigne des données à synthétiser.
+    """
+    return (
+        f"Thème de la revue de presse : {topic}\n\n"
+        f"<discussion>\n{conversation}\n</discussion>"
+    )
