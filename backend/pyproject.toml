@@ -10,4 +10,17 @@ dependencies = [
     "sqlmodel>=0.0.14",
     "psycopg2-binary>=2.9.9",
     "bcrypt>=4.3.0",
+    "pyjwt>=2.15.1",
+    "pydantic-ai-slim[google,groq]>=2.61.0",
 ]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+# Le code est importé comme dans `python src/main.py` (imports absolus depuis src/)
+pythonpath = ["src"]
+testpaths = ["tests"]

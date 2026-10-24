@@ -1,10 +1,30 @@
+import logging
 import os
 
-from database import init_db
-from fastapi import FastAPI
 import uvicorn
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI()
+from config import CORS_ORIGINS
+from database import init_db
+from routers import auth, chats
+
+logging.basicConfig(level=logging.INFO)
+
+app = FastAPI(title="NewsFoundry API")
+
+# Le frontend (Next.js) tourne sur un autre domaine que l'API :
+# le navigateur bloque ses requêtes si l'API ne l'autorise pas explicitement (CORS).
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(auth.router)
+app.include_router(chats.router)
 
 
 @app.get("/")
