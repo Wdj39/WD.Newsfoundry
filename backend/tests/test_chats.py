@@ -7,9 +7,10 @@ d'un autre utilisateur.
 from pydantic_ai.exceptions import ModelHTTPError
 from pydantic_ai.models.function import FunctionModel
 
-from conftest import FAKE_LLM_ANSWER, auth_headers
-from dependencies import get_chat_model
+from conftest import FAKE_LLM_ANSWER, FakeNewsClient, auth_headers
+from dependencies import get_chat_model, get_news_client
 from main import app
+from models import Chat
 
 
 def create_chat(client, user) -> int:
@@ -132,3 +133,39 @@ def test_llm_failure_returns_503_and_keeps_history_clean(client, alice):
     assert "indisponible" in response.json()["detail"]
     messages = client.get(f"/chats/{chat_id}", headers=auth_headers(alice)).json()["messages"]
     assert messages == []
+
+
+# --- Étape 5 : actualités du jour dans le prompt système ---
+
+
+def test_new_chat_prompt_contains_todays_news(client, session, alice):
+    chat_id = create_chat(client, alice)
+
+    chat = session.get(Chat, chat_id)
+    assert "Le Parlement adopte la réforme budgétaire" in chat.system_prompt
+    assert "https://exemple.fr/budget" in chat.system_prompt
+
+
+def test_chat_is_created_even_if_news_api_fails(client, session, alice):
+    app.dependency_overrides[get_news_client] = lambda: FakeNewsClient(error="quota épuisé")
+
+    chat_id = create_chat(client, alice)
+
+    chat = session.get(Chat, chat_id)
+    assert "n'ont pas pu être chargées" in chat.system_prompt
+
+
+def test_news_are_fetched_once_for_several_chats(client, alice):
+    calls = []
+
+    class CountingClient(FakeNewsClient):
+        async def top_news(self, **kwargs):
+            calls.append(1)
+            return await super().top_news(**kwargs)
+
+    app.dependency_overrides[get_news_client] = lambda: CountingClient()
+
+    create_chat(client, alice)
+    create_chat(client, alice)
+
+    assert len(calls) == 1  # le second appel est servi par le cache

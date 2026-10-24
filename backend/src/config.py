@@ -33,6 +33,16 @@ GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
+# --- Actualités (https://worldnewsapi.com) ---
+WORLD_NEWS_API_KEY = os.getenv("WORLD_NEWS_API_KEY", "")
+NEWS_COUNTRY = os.getenv("NEWS_COUNTRY", "fr")  # pays des sources (code ISO)
+NEWS_LANGUAGE = os.getenv("NEWS_LANGUAGE", "fr")  # langue des articles
+# Nombre maximal de sujets injectés dans le prompt système (garde le prompt court)
+NEWS_MAX_TOP_STORIES = int(os.getenv("NEWS_MAX_TOP_STORIES", "15"))
+# Durée de mise en cache des gros titres : évite de consommer le quota
+# de l'API à chaque nouvelle discussion
+NEWS_CACHE_SECONDS = int(os.getenv("NEWS_CACHE_SECONDS", "3600"))
+
 # --- CORS ---
 # Origines autorisées à appeler l'API, séparées par des virgules.
 # En local : le serveur Next.js ; en production : l'URL Vercel.

@@ -21,8 +21,10 @@ from pydantic_ai.models import Model
 from sqlmodel import Session
 
 from agents.chat_agent import ChatDeps, chat_agent
+from agents.prompts import build_chat_system_prompt
 from models import Chat, User, utc_now
 from schemas import MessageView
+from services.news_api import NewsAPIError, NewsClient, get_top_news_cached
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +43,21 @@ def get_owned_chat(session: Session, chat_id: int, user: User) -> Chat:
             detail="Discussion introuvable.",
         )
     return chat
+
+
+async def build_system_prompt_with_news(news_client: NewsClient) -> str:
+    """Prompt système d'une nouvelle discussion, enrichi des actualités du jour.
+
+    Si World News API est indisponible (quota épuisé, panne, clé absente…), la
+    discussion est quand même créée : le prompt indique alors au modèle qu'il ne
+    dispose pas de l'actualité, pour qu'il le signale au lieu d'inventer.
+    """
+    try:
+        news = await get_top_news_cached(news_client)
+    except NewsAPIError as exc:
+        logger.warning("Actualités du jour indisponibles : %s", exc)
+        news = None
+    return build_chat_system_prompt(news)
 
 
 def load_history(chat: Chat) -> list[ModelMessage]:

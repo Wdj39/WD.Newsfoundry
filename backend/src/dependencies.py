@@ -10,6 +10,7 @@ from agents.llm import LLMNotConfiguredError, get_llm
 from database import get_session
 from models import User
 from security import decode_access_token
+from services.news_api import NewsClient
 
 # auto_error=False : on gère nous-mêmes l'absence de token pour renvoyer un 401
 # avec un message clair (par défaut FastAPI renverrait un 403).
@@ -56,3 +57,8 @@ def get_chat_model() -> Model:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Le service d'IA n'est pas configuré sur le serveur.",
         )
+
+
+def get_news_client() -> NewsClient:
+    """Fournit le client World News API (remplacé par un faux client dans les tests)."""
+    return NewsClient()

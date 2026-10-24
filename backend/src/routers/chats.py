@@ -4,12 +4,18 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic_ai.models import Model
 from sqlmodel import Session, col, select
 
-from agents.prompts import build_chat_system_prompt
 from database import get_session
-from dependencies import get_chat_model, get_current_user
+from dependencies import get_chat_model, get_current_user, get_news_client
 from models import Chat, User
 from schemas import ChatDetail, ChatSummary, MessageView, SendMessageRequest
-from services.chat_service import get_owned_chat, load_history, send_message, to_message_views
+from services.chat_service import (
+    build_system_prompt_with_news,
+    get_owned_chat,
+    load_history,
+    send_message,
+    to_message_views,
+)
+from services.news_api import NewsClient
 
 router = APIRouter(prefix="/chats", tags=["chats"])
 
@@ -27,12 +33,19 @@ def list_chats(
 
 
 @router.post("", response_model=ChatSummary, status_code=status.HTTP_201_CREATED)
-def create_chat(
+async def create_chat(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
+    news_client: NewsClient = Depends(get_news_client),
 ) -> Chat:
-    """Crée une nouvelle discussion et retourne son identifiant."""
-    chat = Chat(user_id=user.id, system_prompt=build_chat_system_prompt())
+    """Crée une nouvelle discussion et retourne son identifiant.
+
+    Le prompt système, qui contient les actualités du jour, est construit une
+    seule fois ici puis sauvegardé : la discussion garde le même contexte même
+    si on la reprend un autre jour.
+    """
+    system_prompt = await build_system_prompt_with_news(news_client)
+    chat = Chat(user_id=user.id, system_prompt=system_prompt)
     session.add(chat)
     session.commit()
     session.refresh(chat)
