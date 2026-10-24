@@ -75,6 +75,7 @@ async def post_message(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
     llm: Model = Depends(get_chat_model),
+    news_client: NewsClient = Depends(get_news_client),
 ) -> MessageView:
     """Ajoute un message utilisateur à la discussion et retourne la réponse du LLM."""
     chat = get_owned_chat(session, chat_id, user)
@@ -86,4 +87,4 @@ async def post_message(
             detail="Le message ne peut pas être vide.",
         )
 
-    return await send_message(session, chat, content, llm)
+    return await send_message(session, chat, content, llm, news_client)

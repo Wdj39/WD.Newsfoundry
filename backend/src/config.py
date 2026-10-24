@@ -39,6 +39,10 @@ NEWS_COUNTRY = os.getenv("NEWS_COUNTRY", "fr")  # pays des sources (code ISO)
 NEWS_LANGUAGE = os.getenv("NEWS_LANGUAGE", "fr")  # langue des articles
 # Nombre maximal de sujets injectés dans le prompt système (garde le prompt court)
 NEWS_MAX_TOP_STORIES = int(os.getenv("NEWS_MAX_TOP_STORIES", "15"))
+# Nombre d'articles renvoyés par une recherche de l'agent (tool search_news)
+NEWS_SEARCH_MAX_RESULTS = int(os.getenv("NEWS_SEARCH_MAX_RESULTS", "5"))
+# Nombre maximal de recherches que l'agent peut lancer pour répondre à un message
+NEWS_MAX_SEARCHES_PER_MESSAGE = int(os.getenv("NEWS_MAX_SEARCHES_PER_MESSAGE", "3"))
 # Durée de mise en cache des gros titres : évite de consommer le quota
 # de l'API à chaque nouvelle discussion
 NEWS_CACHE_SECONDS = int(os.getenv("NEWS_CACHE_SECONDS", "3600"))

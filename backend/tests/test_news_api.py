@@ -86,3 +86,18 @@ def test_timeout_is_handled():
 def test_missing_api_key_is_reported():
     with pytest.raises(NewsAPIError, match="aucune clé"):
         asyncio.run(NewsClient(api_key="").top_news())
+
+
+def test_search_news_sends_query_and_parses_articles():
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/search-news"
+        assert request.url.params["text"] == "grève SNCF"
+        assert request.url.params["number"] == "5"
+        return httpx.Response(
+            200,
+            json={"news": [{"title": "Grève à la SNCF", "summary": "Trafic perturbé.", "url": "https://s.fr"}]},
+        )
+
+    articles = asyncio.run(make_client(handler).search_news("grève SNCF"))
+
+    assert [a.title for a in articles] == ["Grève à la SNCF"]

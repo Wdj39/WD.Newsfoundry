@@ -9,6 +9,7 @@ from pydantic_ai import (
     ModelRequest,
     ModelResponse,
     TextPart,
+    UsageLimits,
     UserPromptPart,
 )
 from pydantic_ai.exceptions import (
@@ -89,7 +90,13 @@ def to_message_views(history: list[ModelMessage]) -> list[MessageView]:
     return views
 
 
-async def send_message(session: Session, chat: Chat, content: str, llm: Model) -> MessageView:
+async def send_message(
+    session: Session,
+    chat: Chat,
+    content: str,
+    llm: Model,
+    news_client: NewsClient,
+) -> MessageView:
     """Envoie un message à l'agent, sauvegarde l'historique et retourne la réponse."""
     history = load_history(chat)
 
@@ -97,8 +104,10 @@ async def send_message(session: Session, chat: Chat, content: str, llm: Model) -
         result = await chat_agent.run(
             content,
             message_history=history,
-            deps=ChatDeps(system_prompt=chat.system_prompt),
+            deps=ChatDeps(system_prompt=chat.system_prompt, news_client=news_client),
             model=llm,
+            # Garde-fou : nombre maximal d'allers-retours avec le LLM (appels d'outils compris)
+            usage_limits=UsageLimits(request_limit=8),
         )
     except (ModelAPIError, FallbackExceptionGroup):
         # Erreur côté fournisseur (quota, panne, surcharge) sur tous les modèles

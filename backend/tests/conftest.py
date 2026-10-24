@@ -46,8 +46,15 @@ class FakeNewsClient:
     def __init__(self, articles=None, error: str | None = None):
         self.articles = FAKE_NEWS if articles is None else articles
         self.error = error
+        self.searches: list[str] = []  # requêtes reçues par search_news
 
     async def top_news(self, **kwargs):
+        if self.error:
+            raise NewsAPIError(self.error)
+        return self.articles
+
+    async def search_news(self, query: str, **kwargs):
+        self.searches.append(query)
         if self.error:
             raise NewsAPIError(self.error)
         return self.articles

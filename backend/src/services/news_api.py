@@ -15,6 +15,7 @@ from config import (
     NEWS_COUNTRY,
     NEWS_LANGUAGE,
     NEWS_MAX_TOP_STORIES,
+    NEWS_SEARCH_MAX_RESULTS,
     WORLD_NEWS_API_KEY,
 )
 
@@ -137,6 +138,33 @@ class NewsClient:
             if len(articles) >= max_stories:
                 break
         return articles
+
+
+    async def search_news(
+        self,
+        query: str,
+        *,
+        language: str = NEWS_LANGUAGE,
+        max_results: int = NEWS_SEARCH_MAX_RESULTS,
+    ) -> list[NewsArticle]:
+        """Recherche d'articles par mots-clés, les plus récents d'abord.
+
+        Le nombre de résultats est volontairement faible : chaque article renvoyé
+        consomme du quota (1 point par requête + 0,01 point par article) et allonge
+        le contexte envoyé au LLM.
+        """
+        data = await self._get(
+            "/search-news",
+            {
+                "text": query,
+                "language": language,
+                "sort": "publish-time",
+                "sort-direction": "DESC",
+                "number": max_results,
+            },
+        )
+        articles = [_to_article(raw) for raw in data.get("news") or []]
+        return [article for article in articles if article]
 
 
 # --- Cache des gros titres -------------------------------------------------
