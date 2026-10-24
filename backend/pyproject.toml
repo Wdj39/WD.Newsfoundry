@@ -13,6 +13,8 @@ dependencies = [
     "pyjwt>=2.15.1",
     "pydantic-ai-slim[google,groq]>=2.61.0",
     "httpx>=0.28.1",
+    "llama-index-core>=0.14.25",
+    "llama-index-embeddings-google-genai>=0.6.0",
 ]
 
 [dependency-groups]
@@ -24,3 +26,8 @@ dev = [
 # Le code est importé comme dans `python src/main.py` (imports absolus depuis src/)
 pythonpath = ["src"]
 testpaths = ["tests"]
+
+[tool.uv]
+# Installe les paquets par copie plutôt que par liens physiques : nltk (utilisé
+# par LlamaIndex) refuse de lire ses fichiers de données s'ils sont des liens.
+link-mode = "copy"

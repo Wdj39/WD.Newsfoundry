@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 BASE_URL = "https://api.worldnewsapi.com"
 TIMEOUT_SECONDS = 10.0
 SUMMARY_MAX_CHARS = 300
+# Contenu complet conservé pour le RAG (étape 8), borné pour limiter la taille en base
+TEXT_MAX_CHARS = 8000
 
 
 @dataclass(frozen=True)
@@ -32,6 +34,19 @@ class NewsArticle:
     summary: str
     url: str
     publish_date: str
+    # Contenu complet de l'article (utilisé par le RAG de la revue de presse,
+    # jamais injecté tel quel dans le prompt du chat)
+    text: str = ""
+
+    def to_dict(self) -> dict[str, str]:
+        """Format JSON enregistré dans Chat.loaded_articles."""
+        return {
+            "title": self.title,
+            "summary": self.summary,
+            "url": self.url,
+            "publish_date": self.publish_date,
+            "text": self.text,
+        }
 
 
 class NewsAPIError(Exception):
@@ -67,6 +82,7 @@ def _to_article(raw: dict) -> NewsArticle | None:
         summary=_shorten(summary),
         url=raw.get("url") or "",
         publish_date=raw.get("publish_date") or "",
+        text=_shorten(raw.get("text") or "", TEXT_MAX_CHARS),
     )
 
 

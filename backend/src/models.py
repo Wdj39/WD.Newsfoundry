@@ -42,6 +42,13 @@ class Chat(SQLModel, table=True):
         default_factory=list, sa_column=Column(JSON, nullable=False)
     )
 
+    # Articles chargés pendant la discussion (gros titres du jour + résultats de
+    # search_news), avec leur contenu complet : source du RAG de la revue de presse.
+    # Format : [{"title", "summary", "url", "publish_date", "text"}, ...]
+    loaded_articles: Optional[list[dict[str, Any]]] = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+
     # --- Revue de presse générée à partir de la discussion (vide tant qu'aucune
     # revue n'a été générée ; une nouvelle génération remplace la précédente) ---
     review_topic: Optional[str] = Field(default=None)

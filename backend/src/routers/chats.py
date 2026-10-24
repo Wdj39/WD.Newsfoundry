@@ -44,8 +44,12 @@ async def create_chat(
     seule fois ici puis sauvegardé : la discussion garde le même contexte même
     si on la reprend un autre jour.
     """
-    system_prompt = await build_system_prompt_with_news(news_client)
-    chat = Chat(user_id=user.id, system_prompt=system_prompt)
+    system_prompt, news = await build_system_prompt_with_news(news_client)
+    chat = Chat(
+        user_id=user.id,
+        system_prompt=system_prompt,
+        loaded_articles=[article.to_dict() for article in news],
+    )
     session.add(chat)
     session.commit()
     session.refresh(chat)

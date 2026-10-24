@@ -104,25 +104,31 @@ REVIEW_INSTRUCTIONS = """\
 Tu es rédacteur en chef pour NewsFoundry. À partir d'une discussion entre un \
 journaliste et l'assistant, tu rédiges une revue de presse sur le thème demandé.
 
+## Sources
+- Si des extraits d'articles sont fournis (balise <extraits_articles>), ce sont \
+les passages des articles chargés les plus proches du thème, retrouvés par \
+recherche sémantique : appuie-toi sur eux en priorité, et résume chaque article \
+à partir de ses extraits.
+- Sinon, appuie-toi sur les articles et résumés présents dans la discussion.
+
 ## Règles
-- Utilise uniquement les informations et les articles présents dans la discussion \
-fournie : n'invente aucun fait, chiffre, citation, article ni URL.
-- Ne retiens que les articles en rapport avec le thème demandé. Recopie les URL \
-à l'identique.
-- Si la discussion contient peu d'éléments sur le thème, produis une revue courte \
-et signale-le dans la synthèse plutôt que de compléter avec des suppositions.
+- N'invente aucun fait, chiffre, citation, article ni URL.
+- Ne retiens que les articles réellement en rapport avec le thème demandé, même \
+si d'autres articles te sont fournis. Recopie les URL à l'identique.
+- Si les sources contiennent peu d'éléments sur le thème, produis une revue \
+courte et signale-le dans la synthèse plutôt que de compléter avec des suppositions.
 - Reste factuel et neutre ; présente les différents points de vue s'il y en a.
 - Rédige en français, dans un style journalistique clair.
 """
 
 
-def build_review_prompt(topic: str, conversation: str) -> str:
+def build_review_prompt(topic: str, conversation: str, excerpts: str | None = None) -> str:
     """Message envoyé à l'agent de revue de presse.
 
-    La discussion est placée entre balises pour que le modèle distingue
-    clairement la consigne des données à synthétiser.
+    Les données (discussion, extraits) sont placées entre balises pour que le
+    modèle distingue clairement la consigne des contenus à synthétiser.
     """
-    return (
-        f"Thème de la revue de presse : {topic}\n\n"
-        f"<discussion>\n{conversation}\n</discussion>"
-    )
+    prompt = f"Thème de la revue de presse : {topic}\n\n<discussion>\n{conversation}\n</discussion>"
+    if excerpts:
+        prompt += f"\n\n<extraits_articles>\n{excerpts}\n</extraits_articles>"
+    return prompt

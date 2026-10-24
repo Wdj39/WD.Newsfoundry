@@ -30,6 +30,8 @@ class ChatDeps:
     news_client: NewsClient
     # Requêtes déjà lancées pendant ce message (limite le quota consommé)
     searches: list[str] = field(default_factory=list)
+    # Articles trouvés pendant ce message, enregistrés ensuite dans le Chat (RAG)
+    loaded_articles: list[dict[str, str]] = field(default_factory=list)
 
 
 # Le modèle n'est pas fixé ici : il est passé à chaque `run` (voir agents/llm.py et
@@ -79,6 +81,9 @@ async def search_news(ctx: RunContext[ChatDeps], query: str) -> list[dict[str, s
 
     if not articles:
         return f"Aucun article récent trouvé pour « {query} »."
+
+    # Contenu complet conservé pour le RAG de la revue de presse (étape 8)
+    ctx.deps.loaded_articles.extend(article.to_dict() for article in articles)
 
     # Format simple et compact pour le LLM : uniquement les champs utiles
     return [

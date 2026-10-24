@@ -3,6 +3,7 @@
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from llama_index.core.base.embeddings.base import BaseEmbedding
 from pydantic_ai.models import Model
 from sqlmodel import Session
 
@@ -11,6 +12,7 @@ from database import get_session
 from models import User
 from security import decode_access_token
 from services.news_api import NewsClient
+from services.rag import EmbeddingNotConfiguredError, get_embedding_model
 
 # auto_error=False : on gère nous-mêmes l'absence de token pour renvoyer un 401
 # avec un message clair (par défaut FastAPI renverrait un 403).
@@ -62,3 +64,12 @@ def get_chat_model() -> Model:
 def get_news_client() -> NewsClient:
     """Fournit le client World News API (remplacé par un faux client dans les tests)."""
     return NewsClient()
+
+
+def get_embedding_model_or_none() -> BaseEmbedding | None:
+    """Modèle d'embedding du RAG, ou None s'il n'est pas configuré
+    (la revue de presse est alors générée sans RAG)."""
+    try:
+        return get_embedding_model()
+    except EmbeddingNotConfiguredError:
+        return None

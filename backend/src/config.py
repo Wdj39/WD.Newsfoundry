@@ -33,6 +33,13 @@ GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
+# --- RAG de la revue de presse (étape 8) ---
+# Modèle d'embedding Gemini (même clé que le LLM) : appel d'API peu coûteux,
+# pas de modèle local à charger en mémoire sur le serveur.
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "gemini-embedding-001")
+RAG_CHUNK_SIZE = int(os.getenv("RAG_CHUNK_SIZE", "512"))  # taille d'un extrait (tokens)
+RAG_TOP_K = int(os.getenv("RAG_TOP_K", "12"))  # nombre d'extraits retrouvés
+
 # --- Actualités (https://worldnewsapi.com) ---
 WORLD_NEWS_API_KEY = os.getenv("WORLD_NEWS_API_KEY", "")
 NEWS_COUNTRY = os.getenv("NEWS_COUNTRY", "fr")  # pays des sources (code ISO)

@@ -20,7 +20,11 @@ from sqlalchemy.pool import StaticPool  # noqa: E402
 from sqlmodel import Session, SQLModel, create_engine  # noqa: E402
 
 from database import get_session  # noqa: E402
-from dependencies import get_chat_model, get_news_client  # noqa: E402
+from dependencies import (  # noqa: E402
+    get_chat_model,
+    get_embedding_model_or_none,
+    get_news_client,
+)
 from main import app  # noqa: E402
 from models import User  # noqa: E402
 from security import create_access_token, hash_password  # noqa: E402
@@ -36,6 +40,7 @@ FAKE_NEWS = [
         summary="Le texte a été voté en première lecture.",
         url="https://exemple.fr/budget",
         publish_date="2026-10-24 08:00:00",
+        text="Le Parlement a adopté la réforme budgétaire. Le budget prévoit des économies.",
     ),
 ]
 
@@ -79,6 +84,8 @@ def client(session: Session):
         custom_output_text=FAKE_LLM_ANSWER
     )
     app.dependency_overrides[get_news_client] = lambda: FakeNewsClient()
+    # Pas de RAG par défaut (aucun appel au modèle d'embedding de Gemini)
+    app.dependency_overrides[get_embedding_model_or_none] = lambda: None
     clear_news_cache()  # chaque test repart sans actualités en cache
     yield TestClient(app)
     app.dependency_overrides.clear()

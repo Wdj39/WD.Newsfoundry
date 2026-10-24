@@ -1,11 +1,12 @@
 """Routes des revues de presse. Toutes nécessitent un utilisateur authentifié."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from llama_index.core.base.embeddings.base import BaseEmbedding
 from pydantic_ai.models import Model
 from sqlmodel import Session, col, select
 
 from database import get_session
-from dependencies import get_chat_model, get_current_user
+from dependencies import get_chat_model, get_current_user, get_embedding_model_or_none
 from models import Chat, User
 from schemas import GenerateReviewRequest, ReviewView
 from services.chat_service import get_owned_chat
@@ -21,6 +22,7 @@ async def create_review(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
     llm: Model = Depends(get_chat_model),
+    embed_model: BaseEmbedding | None = Depends(get_embedding_model_or_none),
 ) -> ReviewView:
     """Génère (ou régénère) la revue de presse d'une discussion sur un thème."""
     chat = get_owned_chat(session, chat_id, user)
@@ -32,7 +34,7 @@ async def create_review(
             detail="Le thème de la revue de presse ne peut pas être vide.",
         )
 
-    return await generate_review(session, chat, topic, llm)
+    return await generate_review(session, chat, topic, llm, embed_model)
 
 
 @router.get("/reviews", response_model=list[ReviewView])

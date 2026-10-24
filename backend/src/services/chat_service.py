@@ -1,6 +1,7 @@
 """Logique métier des discussions : autorisations, historique, appel de l'agent."""
 
 import logging
+from typing import Any
 
 from fastapi import HTTPException, status
 from pydantic_ai import (
@@ -20,7 +21,7 @@ from agents.prompts import build_chat_system_prompt
 from models import Chat, User, utc_now
 from schemas import MessageView
 from services.llm_errors import handle_llm_errors
-from services.news_api import NewsAPIError, NewsClient, get_top_news_cached
+from services.news_api import NewsAPIError, NewsArticle, NewsClient, get_top_news_cached
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +42,10 @@ def get_owned_chat(session: Session, chat_id: int, user: User) -> Chat:
     return chat
 
 
-async def build_system_prompt_with_news(news_client: NewsClient) -> str:
+async def build_system_prompt_with_news(news_client: NewsClient) -> tuple[str, list[NewsArticle]]:
     """Prompt système d'une nouvelle discussion, enrichi des actualités du jour.
+
+    Retourne aussi les articles utilisés, pour les enregistrer avec la discussion.
 
     Si World News API est indisponible (quota épuisé, panne, clé absente…), la
     discussion est quand même créée : le prompt indique alors au modèle qu'il ne
@@ -52,8 +55,21 @@ async def build_system_prompt_with_news(news_client: NewsClient) -> str:
         news = await get_top_news_cached(news_client)
     except NewsAPIError as exc:
         logger.warning("Actualités du jour indisponibles : %s", exc)
-        news = None
-    return build_chat_system_prompt(news)
+        news = []
+    return build_chat_system_prompt(news), news
+
+
+def merge_loaded_articles(
+    existing: list[dict[str, Any]] | None, new: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Ajoute de nouveaux articles à ceux de la discussion, sans doublon d'URL."""
+    merged = list(existing or [])
+    known_urls = {article.get("url") for article in merged}
+    for article in new:
+        if article.get("url") not in known_urls:
+            merged.append(article)
+            known_urls.add(article.get("url"))
+    return merged
 
 
 def load_history(chat: Chat) -> list[ModelMessage]:
@@ -95,11 +111,12 @@ async def send_message(
     """Envoie un message à l'agent, sauvegarde l'historique et retourne la réponse."""
     history = load_history(chat)
 
+    deps = ChatDeps(system_prompt=chat.system_prompt, news_client=news_client)
     with handle_llm_errors("Essayez de reformuler votre message."):
         result = await chat_agent.run(
             content,
             message_history=history,
-            deps=ChatDeps(system_prompt=chat.system_prompt, news_client=news_client),
+            deps=deps,
             model=llm,
             # Garde-fou : nombre maximal d'allers-retours avec le LLM (appels d'outils compris)
             usage_limits=UsageLimits(request_limit=8),
@@ -109,6 +126,7 @@ async def send_message(
     # utilisateur orphelin (sans réponse) dans l'historique.
     # Une nouvelle liste est assignée pour que SQLAlchemy détecte la modification du JSON.
     chat.messages = ModelMessagesTypeAdapter.dump_python(result.all_messages(), mode="json")
+    chat.loaded_articles = merge_loaded_articles(chat.loaded_articles, deps.loaded_articles)
     chat.updated_at = utc_now()
     session.add(chat)
     session.commit()
