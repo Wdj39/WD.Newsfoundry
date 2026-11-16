@@ -87,7 +87,7 @@ async def post_message(
     content = body.content.strip()
     if not content:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Le message ne peut pas être vide.",
         )
 

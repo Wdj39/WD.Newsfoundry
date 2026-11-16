@@ -30,7 +30,7 @@ async def create_review(
     topic = body.topic.strip()
     if not topic:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Le thème de la revue de presse ne peut pas être vide.",
         )
 
