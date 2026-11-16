@@ -1,5 +1,6 @@
 import { Bot, User } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import { Message } from "@/lib/chats";
 import { formatTime } from "@/lib/format";
@@ -33,7 +34,7 @@ export default function MessageBubble({ message }: { message: Message }) {
           <p className="whitespace-pre-wrap">{message.content}</p>
         ) : (
           <div className="markdown">
-            <ReactMarkdown>{message.content}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
           </div>
         )}
         <p className={`mt-2 text-xs ${isUser ? "text-gray-400" : "text-gray-700"}`}>

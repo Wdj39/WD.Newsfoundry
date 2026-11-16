@@ -4,6 +4,7 @@ import { Calendar, Check } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import { formatLongDateTime } from "@/lib/format";
 import { Review, reviewToMarkdown } from "@/lib/reviews";
@@ -52,7 +53,7 @@ export default function ReviewCard({ review }: { review: Review }) {
       </header>
 
       <div className="markdown mt-6 px-0 text-sm text-gray-900 md:px-6">
-        <ReactMarkdown>{review.summary}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{review.summary}</ReactMarkdown>
       </div>
 
       {review.articles.length > 0 && (
