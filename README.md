@@ -7,6 +7,7 @@ gros titres du jour, chat avec un agent capable de rechercher des articles, puis
 revue de presse structurée (avec RAG).
 
 - **Application déployée** : https://wd-newsfoundry.vercel.app
+- **API backend** : https://wdnewsfoundry-production.up.railway.app ([documentation interactive](https://wdnewsfoundry-production.up.railway.app/docs))
 - **Documentation technique complète** (structure, choix techniques, erreurs de l'API, prompts,
   tests, déploiement, pistes d'amélioration) : [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md)
 

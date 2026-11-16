@@ -1,12 +1,12 @@
 # NewsFoundry — Documentation technique
 
 > **Projet 14 OpenClassrooms — Option B** : outil de revue de presse automatique par IA.
-> Auteur : Wajih Djedidi — Octobre 2026
+> Auteur : Wajih Djedidi — Octobre-novembre 2026
 
 | | |
 |---|---|
 | **Application déployée (frontend)** | https://wd-newsfoundry.vercel.app |
-| **Backend** | à déployer sur Railway (inscriptions Railway suspendues depuis le 21/10/2026, voir [§ 8](#8-déploiement)) |
+| **API backend (Railway)** | https://wdnewsfoundry-production.up.railway.app — documentation interactive : [`/docs`](https://wdnewsfoundry-production.up.railway.app/docs) |
 | **Dépôt** | https://github.com/Wdj39/WD.Newsfoundry |
 | **Compte de démonstration** | `test@test.com` / `test` |
 
@@ -346,19 +346,34 @@ Les messages sont affichés en rouge à l'endroit concerné (formulaire de conne
 | Partie | Plateforme | Configuration | État |
 |---|---|---|---|
 | Frontend | **Vercel** | Root Directory : `frontend`, preset Next.js, variable `NEXT_PUBLIC_API_URL` | ✅ https://wd-newsfoundry.vercel.app |
-| Backend | **Railway** | Root Directory : `/backend`, build par `Dockerfile`, domaine public, variables d'environnement du § 3 | ⏸️ en attente |
-| Base de données | **Railway** (PostgreSQL) | `DATABASE_URL=${{Postgres.DATABASE_URL}}` dans les variables du backend | ⏸️ en attente |
+| Backend | **Railway** | Root Directory : `/backend`, build par `Dockerfile`, domaine public (port 8080), variables d'environnement du § 3 | ✅ https://wdnewsfoundry-production.up.railway.app |
+| Base de données | **Railway** (PostgreSQL) | `DATABASE_URL=${{Postgres.DATABASE_URL}}` dans les variables du backend | ✅ service privé, non exposé sur Internet |
 
 **Déploiement automatique** : Vercel et Railway sont reliés au dépôt GitHub et redéploient à chaque commit sur la branche `main`.
 
 **Préparation du backend pour Railway** :
 - le `Dockerfile` fourni copiait `backend/pyproject.toml` alors que Railway construit l'image depuis le dossier `backend/` ; les chemins ont été corrigés ;
-- le port d'écoute est lu dans la variable `PORT` fournie par Railway (8000 par défaut) ;
+- le port d'écoute est lu dans la variable `PORT` fournie par Railway (8000 par défaut en local) ;
 - l'image n'installe pas les dépendances de test (`uv sync --frozen --no-dev`).
 
-**Railway** : les nouvelles inscriptions sont suspendues depuis l'incident de sécurité du 21/10/2026 ([page de statut](https://status.railway.com/)). Le backend est prêt à être déployé dès leur réouverture ; une plateforme alternative compatible Docker (Render, par exemple) est envisagée en accord avec le mentor si besoin.
+**Variables d'environnement en production** :
 
-**Après le déploiement du backend** : renseigner `NEXT_PUBLIC_API_URL` dans Vercel avec l'URL publique Railway, et ajouter l'URL Vercel dans `CORS_ORIGINS` du backend. Utiliser en production une valeur de `JWT_SECRET` différente de celle de développement.
+| Service | Variable | Valeur |
+|---|---|---|
+| Vercel | `NEXT_PUBLIC_API_URL` | `https://wdnewsfoundry-production.up.railway.app` (type « Config » : la valeur est de toute façon lisible dans le code du site) |
+| Railway | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (référence résolue par Railway) |
+| Railway | `CORS_ORIGINS` | `https://wd-newsfoundry.vercel.app` |
+| Railway | `JWT_SECRET` | clé générée pour la production, différente de celle de développement |
+| Railway | `GEMINI_API_KEY`, `GROQ_API_KEY`, `WORLD_NEWS_API_KEY` | clés API (jamais dans le dépôt) |
+
+`NEXT_PUBLIC_API_URL` est intégrée au site au moment du build : après l'avoir modifiée, il faut redéployer le frontend.
+
+**Problèmes rencontrés au déploiement** :
+- *Inscriptions Railway suspendues* du 21/10/2026 jusqu'à mi-novembre (incident de sécurité) : le frontend a d'abord été déployé seul sur Vercel, le backend dès la réouverture.
+- *Erreur 502 « Application failed to respond »* : le domaine public pointait vers le port 8000, alors que Railway fournit `PORT=8080` à l'application (log : `Uvicorn running on http://0.0.0.0:8080`). Correction : port cible du domaine réglé sur 8080.
+- *Premier build en échec* : Railway construisait depuis la racine du dépôt ; corrigé avec le Root Directory `/backend`.
+
+**Accès GitHub de Railway** limité au seul dépôt du projet (« Only select repositories »).
 
 ---
 
@@ -396,6 +411,9 @@ Le workflow `.github/workflows/tests.yml` s'exécute à chaque push sur `main` e
 |---|---|---|
 | Connexion impossible avec le compte de test | `bcrypt.hashpw` renvoie des *bytes*, stockés par PostgreSQL sous forme hexadécimale (`\x2432…`) | Hash décodé en texte avant enregistrement (`security.hash_password`) |
 | Échec probable du build Railway | `Dockerfile` écrit pour un build depuis la racine du dépôt | Chemins relatifs au dossier `backend/` |
+| Erreur 502 sur le backend déployé | Domaine Railway dirigé vers le port 8000, application lancée sur `PORT=8080` | Port cible du domaine réglé sur 8080 (§ 8) |
+| 10 alertes de sécurité GitHub (Dependabot), dont 1 critique | Dépendances anciennes héritées du projet de départ (`starlette`, `anyio`, `python-dotenv`…) et `minimatch` côté outillage frontend | Mise à jour des paquets (`uv lock --upgrade-package`, `overrides` npm) ; 0 alerte ouverte, 46 tests toujours verts |
+| Tableaux affichés en texte brut (barres verticales et tirets) dans le chat | `react-markdown` ne gère pas les tableaux sans extension | Ajout de `remark-gfm` et d'un style pour les tableaux |
 | Erreur 503 au premier message | Logs : `gemini-2.5-flash is no longer available to new users`, `llama-3.3-70b-versatile does not exist` | Modèles mis à jour et rendus configurables |
 | Dates décalées de 2 h | Colonnes « sans fuseau » : PostgreSQL convertit les dates dans le fuseau de sa session | Dates enregistrées en UTC « naïf », fuseau UTC rajouté dans les réponses (`schemas.UTCDatetime`) |
 | `PermissionError` de `nltk` (LlamaIndex) | `uv` installe les paquets par liens physiques, refusés par `nltk` | `link-mode = "copy"` dans `pyproject.toml` |
@@ -410,7 +428,7 @@ Chaque piste est illustrée par une **mesure ou un exemple observé**, accompagn
 
 ### 11.0 Mesures de référence
 
-Protocole : backend redémarré (cache vide), nouvelle discussion, 5 messages enchaînés puis génération d'une revue de presse. Modèle ayant répondu : `gemini-3.8-flash` à chaque fois (pas de recours à Groq pendant cette session).
+Protocole : backend redémarré (cache vide), nouvelle discussion, 5 messages enchaînés puis génération d'une revue de presse. Modèle ayant répondu : `gemini-3.8-flash` pour ces 5 messages. Une seconde discussion courte (1 message puis une revue) complète les mesures.
 
 **Chat** (`POST /chats/{id}/messages`)
 
@@ -424,17 +442,19 @@ Protocole : backend redémarré (cache vide), nouvelle discussion, 5 messages en
 
 - **Temps de réponse moyen : 69,2 s** (médiane 67,4 s) ; **39,0 s** en moyenne sans recherche, **114,6 s** avec recherche(s).
 - Le temps est presque entièrement passé dans les appels au LLM : chaque recherche ajoute un aller-retour complet au modèle (≈ 20 à 40 s), et le contexte renvoyé grossit à chaque tour (33 520 tokens en entrée pour le message 3, soit 10 fois le message 1).
-- Le temps de l'API elle-même est négligeable : `POST /chats` (avec appel à `/top-news`) **1,17 s**, `GET /chats` et `GET /chats/{id}` **0,01 à 0,02 s**.
+- Le temps de l'API elle-même est négligeable : `GET /chats` et `GET /chats/{id}` **0,01 à 0,02 s**. `POST /chats` prend **1,17 s** quand il appelle `/top-news`, et **0,06 s** quand les gros titres sont servis par le cache (gain mesuré du cache : × 20).
+- **Basculement de secours** : sur un autre message (« résume l'actualité technologique de la semaine », 1 recherche), Gemini a répondu 429 (quota) en cours de traitement ; `FallbackModel` est passé sur Groq (`openai/gpt-oss-120b`) et la réponse est arrivée en **18,1 s**. Une erreur 429 est relayée immédiatement, alors qu'une erreur 503 déclenche d'abord les nouvelles tentatives du SDK Google (≈ 3 min observées, § 11.2).
 
 **Revue de presse** (`POST /chats/{id}/review`)
 
 | Discussion | Articles chargés | RAG | Prompt | Tokens entrée / sortie | Articles cités | Durée |
 |---|---|---|---|---|---|---|
-| 1 message (2 recherches) | 25 | 12 extraits de 9 articles (9,7 s, 7 appels d'embedding) | — | — | — | non mesurée* |
+| 4 messages (1 échange, 1 recherche), thème « le PHP » | 20 | 12 extraits de 7 articles (6,4 s, 6 appels d'embedding) | 22 659 caractères | 6 261 / 1 667 | 0 | **80,8 s** |
 | 18 messages (5 échanges, 4 recherches) | jusqu'à 35 (15 gros titres + 4 × 5 résultats) | **échec** : quota d'embedding gratuit dépassé (30 000 tokens/min, erreur 429) → repli sans RAG | 28 814 caractères | 10 240 / 4 587 | 6 | **88,6 s** |
 
-\* mesure faite avant l'ajout des logs de durée.
 
+- **La durée dépend peu de la longueur de la discussion** (80,8 s pour 4 messages, 88,6 s pour 18) : elle est dominée par le temps de génération du modèle (≈ 75 s), le RAG ne représentant que 6,4 s. Réduire la durée passe donc d'abord par le modèle (modèle plus rapide pour la revue, ou streaming), pas par la taille du contexte.
+- **Test de fiabilité** : le thème « le PHP » n'avait aucun rapport avec la discussion (actualité technologique en Afrique). L'agent a cité **0 article** et l'a signalé dans la synthèse au lieu d'inventer du contenu, conformément aux règles du prompt (§ 6).
 - Le **repli sans RAG a fonctionné comme prévu** : la revue a été générée malgré l'erreur 429 de l'API d'embedding, l'utilisateur n'a vu aucune erreur.
 - Les 88,6 s comprennent les nouvelles tentatives de l'API d'embedding avant l'échec (8 appels réussis puis 3 refusés) : une partie du temps est perdue avant même l'appel au LLM.
 
@@ -454,7 +474,7 @@ Ces mesures servent de référence pour les pistes ci-dessous.
 
 - **Constat** : lors d'une indisponibilité de Gemini (erreur 503 observée), le message envoyé à 22:41 n'a reçu sa réponse qu'à 22:44 (≈ 3 min). Le SDK Google réessaie plusieurs fois avec un délai croissant **avant** que le `FallbackModel` ne passe sur Groq.
 - **Implémentation** : limiter les nouvelles tentatives du SDK Google (`retry_options` du `GoogleProvider`) et fixer un délai maximal par requête (`timeout` dans `ModelSettings`), pour que le basculement sur Groq intervienne après un seul échec ; journaliser le modèle utilisé (déjà en place) pour suivre le taux de recours au secours.
-- **Objectif** : quand Gemini est indisponible, **au plus 10 s de plus** qu'une réponse normale (≈ 25 s sans recherche, § 11.0), contre ≈ 3 min observées.
+- **Objectif** : quand Gemini est indisponible, **au plus 10 s de plus** qu'une réponse normale (≈ 25 s sans recherche, § 11.0), contre ≈ 3 min observées sur une erreur 503 (la bascule sur une erreur 429 prend déjà 18 s, § 11.0).
 
 ### 11.3 Mettre en cache les embeddings du RAG
 
