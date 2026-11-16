@@ -87,7 +87,7 @@ Le projet est un **monorepo** : deux applications indépendantes dans un même d
 │   │       ├── chat_agent.py     #   agent du chat + tool search_news
 │   │       ├── review_agent.py   #   agent de revue de presse (sortie structurée)
 │   │       └── prompts.py        #   prompts système (voir § 6)
-│   └── tests/                    # tests pytest (46 tests)
+│   └── tests/                    # tests pytest (48 tests)
 └── frontend/                     # application Next.js (TypeScript, Tailwind)
     └── src/
         ├── app/                  # pages (App Router)
@@ -250,7 +250,8 @@ Le **tool `search_news`** :
 1. L'utilisateur choisit un thème ; `POST /chats/{id}/review` est appelé.
 2. **RAG** (`services/rag.py`) : le contenu des articles chargés est découpé en extraits de 512 tokens (LlamaIndex `SentenceSplitter`), converti en embeddings (Gemini), et les **12 extraits les plus proches du thème** sont retrouvés puis regroupés par article.
 3. L'**agent de revue** reçoit le thème, la transcription de la discussion et ces extraits, et renvoie une sortie structurée : `title`, `summary` (Markdown) et `articles` (titre, média, URL, résumé).
-4. La revue est enregistrée dans le `Chat` et affichée sur la page « Revues de presse » (bouton « Copier » au format Markdown).
+4. **Garde-fou anti-hallucination** : les articles dont l'URL ne figure pas parmi les articles chargés pendant la discussion (`Chat.loaded_articles`) sont retirés de la revue. Le prompt demande déjà de ne rien inventer ; cette vérification dans le code le garantit pour les sources.
+5. La revue est enregistrée dans le `Chat` et affichée sur la page « Revues de presse » (bouton « Copier » au format Markdown).
 
 **Repli sans RAG** : si aucun article n'a été chargé, si aucun modèle d'embedding n'est configuré ou si le calcul échoue, l'agent reçoit la transcription complète avec les résumés des articles (fonctionnement de l'étape 7).
 
@@ -386,15 +387,15 @@ cd backend
 uv run pytest -v
 ```
 
-46 tests, environ 10 secondes, **sans aucun appel réseau** : le LLM est remplacé par le `TestModel` / `FunctionModel` de PydanticAI (`models.ALLOW_MODEL_REQUESTS = False` empêche tout appel réel), World News API par un faux client ou un `httpx.MockTransport`, et les embeddings par un faux modèle déterministe. La base est une base SQLite en mémoire, recréée pour chaque test.
+48 tests, environ 10 secondes, **sans aucun appel réseau** : le LLM est remplacé par le `TestModel` / `FunctionModel` de PydanticAI (`models.ALLOW_MODEL_REQUESTS = False` empêche tout appel réel), World News API par un faux client ou un `httpx.MockTransport`, et les embeddings par un faux modèle déterministe. La base est une base SQLite en mémoire, recréée pour chaque test.
 
 | Fichier | Ce qui est testé |
 |---|---|
 | `test_auth.py` | Connexion, mauvais mot de passe, email inconnu, token absent ou falsifié |
 | `test_chats.py` | **Autorisations** : accès à ses propres discussions (cas nominal), refus de lire **et** d'écrire dans la discussion d'un autre utilisateur ; panne du LLM (503, historique intact) ; actualités dans le prompt, création malgré une panne de l'API, cache |
-| `test_agent_tools.py` | Appel du tool par l'agent, limite de 3 recherches, erreur de l'API transmise au modèle |
+| `test_agent_tools.py` | Appel du tool par l'agent, limite de 3 recherches, erreur de l'API transmise au modèle, étapes intermédiaires masquées dans l'historique affiché |
 | `test_news_api.py` | Client World News API : analyse des réponses, codes d'erreur 401/402/429/500, délai dépassé, clé absente |
-| `test_reviews.py` | Génération et enregistrement de la sortie structurée, liste limitée à ses propres revues, refus sur la discussion d'un autre, discussion vide, thème vide |
+| `test_reviews.py` | Génération et enregistrement de la sortie structurée, liste limitée à ses propres revues, refus sur la discussion d'un autre, discussion vide, thème vide, retrait des articles à l'URL inventée |
 | `test_rag.py` | Sélection des extraits pertinents, enregistrement des articles sans doublon, repli sans RAG |
 
 ### Intégration continue
@@ -412,7 +413,9 @@ Le workflow `.github/workflows/tests.yml` s'exécute à chaque push sur `main` e
 | Connexion impossible avec le compte de test | `bcrypt.hashpw` renvoie des *bytes*, stockés par PostgreSQL sous forme hexadécimale (`\x2432…`) | Hash décodé en texte avant enregistrement (`security.hash_password`) |
 | Échec probable du build Railway | `Dockerfile` écrit pour un build depuis la racine du dépôt | Chemins relatifs au dossier `backend/` |
 | Erreur 502 sur le backend déployé | Domaine Railway dirigé vers le port 8000, application lancée sur `PORT=8080` | Port cible du domaine réglé sur 8080 (§ 8) |
-| 10 alertes de sécurité GitHub (Dependabot), dont 1 critique | Dépendances anciennes héritées du projet de départ (`starlette`, `anyio`, `python-dotenv`…) et `minimatch` côté outillage frontend | Mise à jour des paquets (`uv lock --upgrade-package`, `overrides` npm) ; 0 alerte ouverte, 46 tests toujours verts |
+| 10 alertes de sécurité GitHub (Dependabot), dont 1 critique | Dépendances anciennes héritées du projet de départ (`starlette`, `anyio`, `python-dotenv`…) et `minimatch` côté outillage frontend | Mise à jour des paquets (`uv lock --upgrade-package`, `overrides` npm) ; 0 alerte ouverte, tests toujours verts |
+| Messages manquants en revenant sur une discussion créée dans le même onglet | Le cache d'historique du frontend (`freshHistories`) n'était rempli qu'au premier message, puis jamais mis à jour | Cache mis à jour à chaque message ; scénario rejoué dans un navigateur avant et après correction |
+| Phrase intermédiaire de l'agent (« Je lance une recherche… ») affichée comme une réponse après rechargement | `to_message_views` gardait le texte des réponses contenant un appel d'outil | Ces réponses intermédiaires sont ignorées à l'affichage (test ajouté) |
 | Tableaux affichés en texte brut (barres verticales et tirets) dans le chat | `react-markdown` ne gère pas les tableaux sans extension | Ajout de `remark-gfm` et d'un style pour les tableaux |
 | Erreur 503 au premier message | Logs : `gemini-2.5-flash is no longer available to new users`, `llama-3.3-70b-versatile does not exist` | Modèles mis à jour et rendus configurables |
 | Dates décalées de 2 h | Colonnes « sans fuseau » : PostgreSQL convertit les dates dans le fuseau de sa session | Dates enregistrées en UTC « naïf », fuseau UTC rajouté dans les réponses (`schemas.UTCDatetime`) |

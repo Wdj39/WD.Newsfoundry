@@ -11,6 +11,7 @@ from pydantic_ai import (
     ModelRequest,
     ModelResponse,
     TextPart,
+    ToolCallPart,
     UsageLimits,
     UserPromptPart,
 )
@@ -84,6 +85,10 @@ def to_message_views(history: list[ModelMessage]) -> list[MessageView]:
     L'historique brut contient aussi les appels d'outils et leurs résultats
     (étapes suivantes) : on ne garde que ce que l'utilisateur doit voir,
     c'est-à-dire ses messages et les réponses textuelles de l'agent.
+
+    Une réponse qui contient un appel d'outil est une étape intermédiaire : le
+    texte qui l'accompagne parfois (« Je lance une recherche… ») n'est pas la
+    réponse finale et n'est donc pas affiché, comme lors de l'envoi du message.
     """
     views: list[MessageView] = []
     for message in history:
@@ -94,6 +99,8 @@ def to_message_views(history: list[ModelMessage]) -> list[MessageView]:
                         MessageView(role="user", content=part.content, created_at=part.timestamp)
                     )
         elif isinstance(message, ModelResponse):
+            if any(isinstance(part, ToolCallPart) for part in message.parts):
+                continue
             text = "".join(part.content for part in message.parts if isinstance(part, TextPart))
             if text.strip():
                 views.append(

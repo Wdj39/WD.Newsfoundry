@@ -2,6 +2,7 @@
 
 import logging
 import time
+from typing import Any
 
 from fastapi import HTTPException, status
 from llama_index.core.base.embeddings.base import BaseEmbedding
@@ -10,7 +11,7 @@ from pydantic_ai.models import Model
 from sqlmodel import Session
 
 from agents.prompts import build_review_prompt
-from agents.review_agent import review_agent
+from agents.review_agent import ReviewArticle, review_agent
 from models import Chat, utc_now
 from schemas import ReviewView
 from services.chat_service import load_history
@@ -82,6 +83,33 @@ def to_review_view(chat: Chat) -> ReviewView:
     )
 
 
+def _normalize_url(url: str) -> str:
+    return url.strip().rstrip("/")
+
+
+def keep_loaded_articles(
+    articles: list[ReviewArticle], loaded_articles: list[dict[str, Any]] | None
+) -> list[ReviewArticle]:
+    """Retire de la revue les articles dont l'URL n'a jamais été chargée.
+
+    Garde-fou contre les hallucinations, en complément des consignes du prompt :
+    toutes les sources légitimes (gros titres du jour et résultats de search_news)
+    sont enregistrées dans `Chat.loaded_articles`. Une URL absente de cette liste
+    a donc été inventée ou déformée par le modèle.
+    Sans liste d'articles (discussion créée avant l'étape 8), rien n'est filtré.
+    """
+    if not loaded_articles:
+        return articles
+    known_urls = {_normalize_url(a.get("url") or "") for a in loaded_articles}
+    kept = [a for a in articles if _normalize_url(a.url) in known_urls]
+    if len(kept) < len(articles):
+        logger.warning(
+            "Revue : %d article(s) retiré(s) car leur URL ne figure pas dans les articles chargés",
+            len(articles) - len(kept),
+        )
+    return kept
+
+
 async def build_review_input(chat: Chat, topic: str, embed_model: BaseEmbedding | None) -> str:
     """Prépare le message de l'agent de revue de presse, avec RAG si possible.
 
@@ -132,6 +160,9 @@ async def generate_review(
     with handle_llm_errors("Réessayez dans quelques instants."):
         result = await review_agent.run(prompt, model=llm)
 
+    review = result.output
+    articles = keep_loaded_articles(review.articles, chat.loaded_articles)
+
     usage = result.usage
     logger.info(
         "Revue (chat %d) : générée en %.1f s | modèle %s | discussion de %d messages | "
@@ -143,14 +174,13 @@ async def generate_review(
         len(prompt),
         usage.input_tokens,
         usage.output_tokens,
-        len(result.output.articles),
+        len(articles),
     )
 
-    review = result.output
     chat.review_topic = topic
     chat.review_title = review.title
     chat.review_summary = review.summary
-    chat.review_articles = [article.model_dump() for article in review.articles]
+    chat.review_articles = [article.model_dump() for article in articles]
     chat.review_generated_at = utc_now()
     session.add(chat)
     session.commit()

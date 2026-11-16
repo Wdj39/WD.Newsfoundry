@@ -27,7 +27,7 @@ revue de presse structurée (avec RAG).
 |---|---|
 | Frontend | Next.js, TypeScript, Tailwind CSS — déployé sur Vercel |
 | Backend | Python 3.13, FastAPI, SQLModel, PostgreSQL, PydanticAI, LlamaIndex — déploiement Railway (Docker) |
-| Qualité | pytest (46 tests), GitHub Actions |
+| Qualité | pytest (48 tests), GitHub Actions |
 
 ## Démarrage rapide
 

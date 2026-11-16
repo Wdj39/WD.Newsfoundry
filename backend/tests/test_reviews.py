@@ -122,3 +122,28 @@ def test_empty_topic_is_rejected(client, alice):
 def test_reviews_require_authentication(client):
     assert client.get("/reviews").status_code == 401
     assert client.post("/chats/1/review", json={"topic": "x"}).status_code == 401
+
+
+def test_review_drops_articles_whose_url_was_never_loaded(client, alice):
+    """Garde-fou contre les hallucinations : un article dont l'URL ne figure pas
+    parmi les articles chargés pendant la discussion est retiré de la revue."""
+    chat_id = chat_with_one_exchange(client, alice)
+    invented = {
+        "title": "Article inventé",
+        "source": "Nulle part",
+        "url": "https://exemple.fr/article-qui-n-existe-pas",
+        "summary": "Cet article n'a jamais été chargé.",
+    }
+    args = {**REVIEW_ARGS, "articles": [*REVIEW_ARGS["articles"], invented]}
+
+    def model(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, args)])
+
+    app.dependency_overrides[get_chat_model] = lambda: FunctionModel(model)
+
+    response = client.post(
+        f"/chats/{chat_id}/review", json={"topic": "budget"}, headers=auth_headers(alice)
+    )
+
+    assert response.status_code == 200
+    assert [a["url"] for a in response.json()["articles"]] == ["https://exemple.fr/budget"]

@@ -96,10 +96,12 @@ export default function ChatView({ chatId }: { chatId: number | null }) {
       setMessages(updatedMessages);
       refreshChats();
 
-      if (chatId === null) {
+      // Le cache doit suivre chaque nouveau message : sinon, en revenant plus tard
+      // sur cette discussion, on réafficherait un historique incomplet.
+      if (chatId === null || freshHistories.has(targetId)) {
         freshHistories.set(targetId, updatedMessages);
-        router.replace(`/chat/${targetId}`);
       }
+      if (chatId === null) router.replace(`/chat/${targetId}`);
     } catch (err) {
       // Échec : on retire le message et on le remet dans le champ pour pouvoir réessayer
       setMessages(previousMessages);

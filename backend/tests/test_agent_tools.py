@@ -105,3 +105,33 @@ def test_no_results_message(client, session, alice):
     chat_id, _ = send(client, alice)
 
     assert tool_returns(session, chat_id) == ["Aucun article récent trouvé pour « sujet introuvable »."]
+
+
+def test_text_sent_with_a_tool_call_is_hidden_from_the_displayed_history(client, alice):
+    """Certains modèles écrivent une phrase (« Je lance une recherche… ») dans la
+    même réponse que l'appel au tool. Ce texte intermédiaire n'est pas la réponse :
+    il ne doit pas apparaître comme un message quand on recharge la discussion."""
+
+    def model(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        already_searched = any(
+            isinstance(part, ToolReturnPart) for message in messages for part in message.parts
+        )
+        if not already_searched:
+            return ModelResponse(
+                parts=[
+                    TextPart("Je lance une recherche…"),
+                    ToolCallPart("search_news", {"query": "budget"}),
+                ]
+            )
+        return ModelResponse(parts=[TextPart("Synthèse finale.")])
+
+    app.dependency_overrides[get_chat_model] = lambda: FunctionModel(model)
+
+    chat_id, response = send(client, alice)
+
+    assert response.json()["content"] == "Synthèse finale."
+    messages = client.get(f"/chats/{chat_id}", headers=auth_headers(alice)).json()["messages"]
+    assert [m["content"] for m in messages] == [
+        "Parle-moi de la réforme budgétaire",
+        "Synthèse finale.",
+    ]
