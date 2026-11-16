@@ -1,6 +1,7 @@
-import { redirect } from "next/navigation";
-
-/** La page d'accueil renvoie vers le chat (qui redirige vers /login si besoin). */
+/**
+ * Page jamais affichée : la redirection de "/" vers "/chat" est déclarée dans
+ * next.config.ts (redirects), avant même le rendu des pages.
+ */
 export default function HomePage() {
-  redirect("/chat");
+  return null;
 }
